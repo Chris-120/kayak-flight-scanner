@@ -1,0 +1,113 @@
+URRENT_DIR = Path(__file__).resolve().parent
+if str(CURRENT_DIR) not in sys.path:
+    sys.path.insert(0, str(CURRENT_DIR))
+
+from utils.date_formatter import ensure_iso_date
+from utils.request_handler import HttpClient
+from extractors.flight_parser import normalize_flights
+from outputs.exporters import write_json, write_csv
+
+CONFIG_PATH = CURRENT_DIR / "config" / "settings.example.json"
+DATA_DIR = CURRENT_DIR.parent / "data"
+
+def load_settings():
+    with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+def build_demo_url(settings: dict, origin: str, destination: str, date_str: str, trip_type: str):
+    """
+    This project intentionally avoids automating Kayak directly to keep the example runnable anywhere.
+    If you want to experiment against a real endpoint, wire your own endpoint here.
+    """
+    base_url = settings.get("base_url")
+    # This is an illustrative URL shape. No request will be made in --offline mode.
+    return (
+        f"{base_url}/search?"
+        f"origins={origin}&destinations={destination}"
+        f"&date={date_str}&tripType={trip_type}"
+        f"&currency={settings.get('currency','USD')}"
+    )
+
+def resolve_output_dir(cli_output_dir: str | None, settings: dict) -> Path:
+    if cli_output_dir:
+        out_dir = Path(cli_output_dir)
+    else:
+        out_dir = Path(settings.get("default_output_dir", DATA_DIR / "outputs"))
+    out_dir.mkdir(parents=True, exist_ok=True)
+    return out_dir
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="KAYAK Flight Scanner – normalize and export structured flight results."
+    )
+    parser.add_argument("--origin", "-o", type=str, default="CGK", help="IATA code for origin (e.g., CGK)")
+    parser.add_argument("--destination", "-d", type=str, default="LHR", help="IATA code for destination (e.g., LHR)")
+    parser.add_argument("--date", "-t", type=str, default=datetime.utcnow().date().isoformat(), help="YYYY-MM-DD")
+    parser.add_argument("--trip-type", "-y", type=str, default="oneway", choices=["oneway", "roundtrip", "multicity"])
+    parser.add_argument("--output-dir", "-O", type=str, help="Directory to save outputs (JSON/CSV)")
+    parser.add_argument("--offline", action="store_true", help="Use local sample_output.json instead of HTTP")
+    parser.add_argument("--input-json", type=str, help="Optional local JSON file to parse instead of request/sample")
+    args = parser.parse_args()
+
+    settings = load_settings()
+    out_dir = resolve_output_dir(args.output_dir, settings)
+
+    # Validate date
+    date_iso = ensure_iso_date(args.date)
+
+    raw_payload = None
+    source = None
+
+    # Priority: explicit input JSON -> offline sample -> HTTP request
+    if args.input_json:
+        input_path = Path(args.input_json)
+        if not input_path.exists():
+            raise FileNotFoundError(f"--input-json file not found: {input_path}")
+        with open(input_path, "r", encoding="utf-8") as f:
+            raw_payload = json.load(f)
+        source = f"local:{input_path}"
+        print(f"[info] Loaded input from {source}")
+    elif args.offline:
+        sample_path = DATA_DIR / "sample_output.json"
+        with open(sample_path, "r", encoding="utf-8") as f:
+            raw_payload = json.load(f)
+        source = f"local:{sample_path}"
+        print(f"[info] Loaded offline sample results from {source}")
+    else:
+        url = build_demo_url(settings, args.origin, args.destination, date_iso, args.trip_type)
+        client = HttpClient(
+            default_headers=settings.get("headers", {}),
+            timeout=settings.get("timeout_seconds", 20),
+            max_retries=settings.get("retries", 2),
+            backoff_seconds=settings.get("retry_backoff_seconds", 0.5),
+            proxy_url=os.environ.get("HTTP_PROXY") or os.environ.get("http_proxy") or None,
+        )
+        print(f"[info] Requesting {url}")
+        try:
+            # Expecting JSON from a user-provided proxy/service. Adjust as needed.
+            raw_payload = client.get_json(url)
+            source = url
+            print("[info] Received response from remote endpoint")
+        except Exception as e:
+            print(f"[warn] HTTP request failed: {e}")
+            print("[warn] Falling back to offline sample data.")
+            sample_path = DATA_DIR / "sample_output.json"
+            with open(sample_path, "r", encoding="utf-8") as f:
+                raw_payload = json.load(f)
+            source = f"local:{sample_path}"
+
+    # Normalize and enrich results
+    normalized = normalize_flights(raw_payload, defaults={"origin": args.origin, "destination": args.destination})
+
+    # Save outputs
+    json_path = out_dir / "flights.json"
+    csv_path = out_dir / "flights.csv"
+    write_json(normalized, json_path)
+    write_csv(normalized, csv_path)
+
+    print(f"[ok] Parsed {len(normalized)} itineraries from {source}")
+    print(f"[ok] Wrote JSON: {json_path}")
+    print(f"[ok] Wrote CSV : {csv_path}")
+
+if __name__ == "__main__":
+    main()
