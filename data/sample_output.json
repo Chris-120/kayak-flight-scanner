@@ -1,0 +1,45 @@
+[
+  {
+    "cabinCode": "e",
+    "displayAirline": { "code": "MULT", "name": "Multiple Airlines" },
+    "distinctAirlines": [
+      { "code": "GA", "name": "Garuda Indonesia" },
+      { "code": "OD", "name": "Batik Air" }
+    ],
+    "legs": [
+      {
+        "legDurationDisplay": "11h 35m",
+        "segments": [
+          { "airline": "Garuda Indonesia", "departure": "Jakarta", "arrival": "Denpasar", "duration": "1h 55m", "flightNumber": "GA406", "aircraft": "B738" },
+          { "airline": "Batik Air", "departure": "Denpasar", "arrival": "Sydney", "duration": "9h 40m", "flightNumber": "OD171", "aircraft": "A333" }
+        ]
+      }
+    ],
+    "optionsByFare": [
+      { "fareName": "Economy", "displayPrice": "$236", "provider": "Trip.com" }
+    ],
+    "providerInfo": { "name": "Trip.com", "currency": "USD" },
+    "operationalDisclosures": []
+  },
+  {
+    "cabinCode": "e",
+    "displayAirline": { "code": "QF", "name": "Qantas" },
+    "distinctAirlines": [
+      { "code": "QF", "name": "Qantas" }
+    ],
+    "legs": [
+      {
+        "legDurationDisplay": "7h 50m",
+        "segments": [
+          { "airline": "Qantas", "departure": "Jakarta", "arrival": "Sydney", "duration": "7h 50m", "flightNumber": "QF42", "aircraft": "A332" }
+        ]
+      }
+    ],
+    "optionsByFare": [
+      { "fareName": "Economy Saver", "displayPrice": "$410", "provider": "Qantas" },
+      { "fareName": "Economy Flex", "displayPrice": "$520", "provider": "Qantas" }
+    ],
+    "providerInfo": { "name": "Qantas", "currency": "USD" },
+    "operationalDisclosures": ["Operated by Qantas Airways"]
+  }
+]
