@@ -1,0 +1,11 @@
+{
+  "base_url": "https://example.local/airfare",
+  "headers": {
+    "User-Agent": "KayakFlightScanner/1.0 (+https://bitbash.dev)"
+  },
+  "timeout_seconds": 20,
+  "retries": 2,
+  "retry_backoff_seconds": 0.5,
+  "currency": "USD",
+  "default_output_dir": "data/outputs"
+}
